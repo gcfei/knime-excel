@@ -905,46 +905,49 @@ class XLSReaderNodeDialog extends NodeDialogPane {
             return;
         }
         m_previewUpdateButton.setText(REFRESH);
-        List<Path> paths = null;
-        try {
-            paths = getFileChooserHelper().getPaths();
-        } catch (final Exception e1) {
-            m_previewMsg.setText("Could not load file");
-        }
-        if ((paths == null) || paths.isEmpty()) {
-            setFileTablePanelBorderTitle("<no file set>");
-            clearTableViews();
-            updatePreviewTable();
-            return;
-        }
-        final Path path = paths.get(0);
-        final String sheet = (String)m_sheetName.getSelectedItem();
-        if ((sheet == null) || sheet.isEmpty()) {
-            fileNotFound();
-            return;
-        }
-        if (sheet == SCANNING) {
-            setFileTablePanelBorderTitle("Loading input file...");
-            clearTableViews();
-            return;
-        }
-        if (m_isCurrentlyLoadingNodeSettings) {
-            // do not read from the file while loading settings.
-            return;
-        }
-        if (m_noPreviewChecker.isSelected()) {
-            return;
-        }
-        //To prevent showing invalid content:
-        clearTableViews();
-        checkPreviousFuture();
-        m_currentTable.set(null);
+
         final AtomicReference<DataTable> dt = new AtomicReference<>(null);
-        m_readRows.setValue(-1);
         final SwingWorker<String, Object> sw = new SwingWorkerWithContext<String, Object>() {
+
             @Override
             protected String doInBackgroundWithContext() throws Exception {
                 try {
+                    List<Path> paths = null;
+                    try {
+                        paths = getFileChooserHelper().getPaths();
+                    } catch (final Exception e1) {
+                        m_previewMsg.setText("Could not load file");
+                    }
+                    if ((paths == null) || paths.isEmpty()) {
+                        setFileTablePanelBorderTitle("<no file set>");
+                        clearTableViews();
+                        updatePreviewTable();
+                        return null;
+                    }
+                    final Path path = paths.get(0);
+                    final String sheet = (String)m_sheetName.getSelectedItem();
+                    if ((sheet == null) || sheet.isEmpty()) {
+                        fileNotFound();
+                        return null;
+                    }
+                    if (sheet == SCANNING) {
+                        setFileTablePanelBorderTitle("Loading input file...");
+                        clearTableViews();
+                        return null;
+                    }
+                    if (m_isCurrentlyLoadingNodeSettings) {
+                        // do not read from the file while loading settings.
+                        return null;
+                    }
+                    if (m_noPreviewChecker.isSelected()) {
+                        return null;
+                    }
+                    //To prevent showing invalid content:
+                    clearTableViews();
+                    checkPreviousFuture();
+                    m_currentTable.set(null);
+                    m_readRows.setValue(-1);
+
                     String localSheet = sheet;
                     if (localSheet.equals(FIRST_SHEET)) {
                         localSheet = firstSheetName(path);
@@ -1235,55 +1238,58 @@ class XLSReaderNodeDialog extends NodeDialogPane {
         // make sure user doesn't trigger it again
         m_previewUpdateButton.setEnabled(false);
 
-        List<Path> paths = null;
-        try {
-            paths = getFileChooserHelper().getPaths();
-        } catch (final Exception e) {
-            // Do nothing
-        }
-        if ((paths == null) || paths.isEmpty()) {
-            m_previewMsg.setText("Set a filename.");
-            clearTableViews();
-            // enable the refresh button again
-            m_previewUpdateButton.setEnabled(!m_noPreviewChecker.isSelected());
-            return;
-        }
-        String sheet = (String)m_sheetName.getSelectedItem();
-        if ((sheet == null) || sheet.isEmpty()) {
-            sheetNotFound();
-            return;
-        }
-        if (sheet.equals(FIRST_SHEET)) {
-            sheet = firstSheetName(paths.get(0));
-            if (sheet == null) {
-                sheetNotFound();
-                return;
-            }
-        }
-        if (sheet == SCANNING) {
-            clearTableViews();
-            // enable the refresh button again
-            m_previewUpdateButton.setEnabled(!m_noPreviewChecker.isSelected());
-            return;
-        }
-
-        if (m_isCurrentlyLoadingNodeSettings) {
-            // do nothing while loading settings.
-            return;
-        }
-        m_previewMsg.setText("Refreshing preview table....");
-
         final AtomicReference<DataTable> dt = new AtomicReference<>(null);
 
-        m_readRows.setValue(-1);
-        final String finalSheet = sheet;
         final SwingWorker<String, Object> sw = new SwingWorkerWithContext<String, Object>() {
+
+            private String m_finalSheet;
+
             @Override
             protected String doInBackgroundWithContext() throws Exception {
+                List<Path> paths = null;
+                try {
+                    paths = getFileChooserHelper().getPaths();
+                } catch (final Exception e) {
+                    // Do nothing
+                }
+                if ((paths == null) || paths.isEmpty()) {
+                    m_previewMsg.setText("Set a filename.");
+                    clearTableViews();
+                    // enable the refresh button again
+                    m_previewUpdateButton.setEnabled(!m_noPreviewChecker.isSelected());
+                    return null;
+                }
+                String sheet = (String)m_sheetName.getSelectedItem();
+                if ((sheet == null) || sheet.isEmpty()) {
+                    sheetNotFound();
+                    return null;
+                }
+                if (sheet.equals(FIRST_SHEET)) {
+                    sheet = firstSheetName(paths.get(0));
+                    if (sheet == null) {
+                        sheetNotFound();
+                        return null;
+                    }
+                }
+                if (sheet == SCANNING) {
+                    clearTableViews();
+                    // enable the refresh button again
+                    m_previewUpdateButton.setEnabled(!m_noPreviewChecker.isSelected());
+                    return null;
+                }
+
+                if (m_isCurrentlyLoadingNodeSettings) {
+                    // do nothing while loading settings.
+                    return null;
+                }
+                m_previewMsg.setText("Refreshing preview table....");
+
+                m_readRows.setValue(-1);
+                m_finalSheet = sheet;
                 XLSUserSettings s;
                 try {
                     s = createSettingsFromComponents();
-                    s.setSheetName(finalSheet);
+                    s.setSheetName(m_finalSheet);
                     final CachedExcelTable sheetTable = m_currentTable.get();
                     m_mapFromKNIMEColumnsToExcel.clear();
                     if (sheetTable != null) {
@@ -1325,7 +1331,7 @@ class XLSReaderNodeDialog extends NodeDialogPane {
                     m_previewMsg.setText(messagePrefix);
                     try {
                         final DataTable newPreviewDataTable = dt.get();
-                        final String previewTxt = PREVIEWBORDER_MSG + ": " + (newPreviewDataTable == null ? finalSheet
+                        final String previewTxt = PREVIEWBORDER_MSG + ": " + (newPreviewDataTable == null ? m_finalSheet
                             : newPreviewDataTable.getDataTableSpec().getName());
                         setPreviewTablePanelBorderTitle(previewTxt);
                         setNewPreviewDataTableInEDT(newPreviewDataTable);
